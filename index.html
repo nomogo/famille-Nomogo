@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Arbre Généalogique Firebase</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 20px;
+    background: #f8fafc;
+    color: #222;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h1 {
+    text-align: center;
+  }
+  form {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+  }
+  input, select, button {
+    padding: 8px 12px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1.5px solid #007bff;
+    outline-offset: 2px;
+  }
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  #tree {
+    white-space: pre;
+    font-family: monospace;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+  }
+  .member-line {
+    cursor: pointer;
+  }
+  .member-line:hover {
+    background: #e0f0ff;
+  }
+  #edit-section {
+    display: none;
+    margin-top: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+  }
+  #edit-section input {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  #edit-section button {
+    margin-right: 10px;
+  }
+  @media (max-width: 500px) {
+    form {
+      flex-direction: column;
+    }
+    input, select, button {
+      width: 100%;
+    }
+  }
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<h1>Arbre Généalogique Firebase</h1>
+
+<form id="add-form">
+  <input type="text" id="name" placeholder="Nom de la personne" required autocomplete="off" />
+  <select id="parent">
+    <option value="">Aucun parent (racine)</option>
+  </select>
+  <button type="submit">Ajouter</button>
+</form>
+
+<pre id="tree">Chargement...</pre>
+
+<div id="edit-section">
+  <h3>Modifier membre</h3>
+  <input type="text" id="edit-name" />
+  <button id="save-edit">💾 Sauvegarder</button>
+  <button id="delete-edit" style="background:#e03e2f; color:#fff;">❌ Supprimer</button>
+  <button id="cancel-edit">Annuler</button>
+</div>
+
+<script>
+  // === CONFIG FIREBASE ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuXPX7SA8m8wr0KO4my2U5SRO4pT0FEj8",
+    authDomain: "arbrefamillenomogo.firebaseapp.com",
+    projectId: "arbrefamillenomogo",
+    storageBucket: "arbrefamillenomogo.appspot.com",
+    messagingSenderId: "1018139402299",
+    appId: "1:1018139402299:web:14e689837f58bfabb9fc1e"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const membersCol = db.collection("members");
+
+  // === Variables globales ===
+  let members = [];
+  let editingId = null;
+
+  // Charger tous les membres depuis Firestore et réagir aux changements en temps réel
+  function loadMembersRealtime() {
+    membersCol.onSnapshot(snapshot => {
+      members = [];
+      snapshot.forEach(doc => {
+        members.push({ id: doc.id, ...doc.data() });
+      });
+      renderParentOptions();
+      renderTree();
+      hideEditSection();
+    }, err => {
+      console.error("Erreur Firestore :", err);
+      document.getElementById("tree").textContent = "Erreur de chargement.";
+    });
+  }
+
+  // Construire l'arbre sous forme de texte console + liens parents-enfants
+  function buildTreeLines(parentId = null, prefix = "") {
+    const children = members.filter(m => m.parentId === parentId);
+    if (children.length === 0) return "";
+    let result = "";
+    children.forEach((child, i) => {
+      const isLast = i === children.length - 1;
+      result += prefix;
+      result += isLast ? "└── " : "├── ";
+      result += `${child.name} (cliquer pour modifier)\n`;
+      const newPrefix = prefix + (isLast ? "    " : "│   ");
+      result += buildTreeLines(child.id, newPrefix);
+    });
+    return result;
+  }
+
+  // Afficher l'arbre
+  function renderTree() {
+    const roots = members.filter(m => !m.parentId);
+    if (roots.length === 0) {
+      document.getElementById("tree").textContent = "Aucun membre. Ajoutez le premier membre.";
+      return;
+    }
+    let output = "";
+    roots.forEach(root => {
+      output += root.name + "\n";
+      output += buildTreeLines(root.id, "");
+    });
+    document.getElementById("tree").textContent = output;
+  }
+
+  // Remplir options parents dans le select
+  function renderParentOptions() {
+    const select = document.getElementById("parent");
+    select.innerHTML = '<option value="">Aucun parent (racine)</option>';
+    members.forEach(m => {
+      select.innerHTML += `<option value="${m.id}">${escapeHtml(m.name)}</option>`;
+    });
+  }
+
+  // Échapper HTML dans option
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, m => ({
+      '&': "&amp;", '<': "&lt;", '>': "&gt;", '"': "&quot;", "'": "&#039;"
+    })[m]);
+  }
+
+  // Ajouter membre
+  document.getElementById("add-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const nameInput = document.getElementById("name");
+    const parentSelect = document.getElementById("parent");
+    const name = nameInput.value.trim();
+    const parentId = parentSelect.value || null;
+    if (!name) {
+      alert("Veuillez entrer un nom.");
+      return;
+    }
+    try {
+      await membersCol.add({ name, parentId });
+      nameInput.value = "";
+      parentSelect.value = "";
+    } catch (err) {
+      alert("Erreur ajout : " + err.message);
+    }
+  });
+
+  // Gérer clic sur arbre pour modifier membre
+  document.getElementById("tree").addEventListener("click", e => {
+    // Trouver la ligne cliquée en fonction du position Y (approximatif)
+    // On simplifie ici : on demande d'utiliser le menu modification via un prompt (pour plus de simplicité)
+    // Mais on peut faire mieux si tu veux.
+
+    // Pour l'instant, on demande le nom exact tapé dans la ligne (car c'est du texte brut)
+    // On peut demander à l'utilisateur de saisir le nom à modifier.
+
+    const clickedText = e.target.textContent;
+    if (!clickedText) return;
+    const nameClicked = clickedText.split(" (")[0].trim();
+    const member = members.find(m => m.name === nameClicked);
+    if (!member) return;
+
+    // Afficher section édition
+    editingId = member.id;
+    document.getElementById("edit-name").value = member.name;
+    showEditSection();
+  });
+
+  // Modifier membre
+  document.getElementById("save-edit").addEventListener("click", async () => {
+    const newName = document.getElementById("edit-name").value.trim();
+    if (!newName) {
+      alert("Le nom ne peut pas être vide.");
+      return;
+    }
+    if (!editingId) return;
+
+    try {
+      await membersCol.doc(editingId).update({ name: newName });
+      hideEditSection();
+    } catch (err) {
+      alert("Erreur modification : " + err.message);
+    }
+  });
+
+  // Supprimer membre
+  document.getElementById("delete-edit").addEventListener("click", async () => {
+    if (!editingId) return;
+    if (!confirm("Supprimer ce membre ? Ses enfants deviendront orphelins.")) return;
+
+    try {
+      await membersCol.doc(editingId).delete();
+
+      // Mettre à jour les enfants pour qu'ils n'aient plus de parent
+      const batch = db.batch();
+      members.filter(m => m.parentId === editingId).forEach(child => {
+        const docRef = membersCol.doc(child.id);
+        batch.update(docRef, { parentId: null });
+      });
+      await batch.commit();
+
+      hideEditSection();
+    } catch (err) {
+      alert("Erreur suppression : " + err.message);
+    }
+  });
+
+  // Annuler édition
+  document.getElementById("cancel-edit").addEventListener("click", () => {
+    hideEditSection();
+  });
+
+  function showEditSection() {
+    document.getElementById("edit-section").style.display = "block";
+  }
+  function hideEditSection() {
+    editingId = null;
+    document.getElementById("edit-section").style.display = "none";
+  }
+
+  // Initialiser
+  loadMembersRealtime();
+</script>
+
+</body>
+</html>
