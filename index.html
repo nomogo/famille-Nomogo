@@ -3,28 +3,30 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Arbre Généalogique Firebase</title>
+<title>Arbre Généalogique Firebase - Vertical</title>
+
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 20px;
+    max-width: 900px;
+    margin: 20px auto;
     background: #f8fafc;
     color: #222;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
   }
+
   h1 {
     text-align: center;
+    margin-bottom: 1rem;
   }
+
   form {
-    margin-bottom: 20px;
     display: flex;
-    gap: 8px;
     flex-wrap: wrap;
-    align-items: center;
+    gap: 10px;
     justify-content: center;
+    margin-bottom: 20px;
   }
+
   input, select, button {
     padding: 8px 12px;
     font-size: 1rem;
@@ -32,63 +34,185 @@
     border: 1.5px solid #007bff;
     outline-offset: 2px;
   }
+
   button {
     background-color: #007bff;
     color: white;
     border: none;
-    cursor: pointer;
     font-weight: 600;
+    cursor: pointer;
     transition: background-color 0.3s ease;
   }
+
   button:hover {
     background-color: #0056b3;
   }
+
   #tree {
-    white-space: pre;
-    font-family: monospace;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Arbre vertical en flex column */
+  .tree-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding: 0 12px;
+  }
+
+  .node-box {
+    background: white;
+    border: 2px solid #007bff;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    min-width: 120px;
+    text-align: center;
+    transition: background-color 0.3s ease;
+  }
+
+  .node-box:hover {
+    background-color: #cce4ff;
+  }
+
+  /* Traits verticaux */
+  .tree-node::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border-left: 2px solid #007bff;
+    height: 20px;
+    transform: translateX(-50%);
+  }
+
+  /* Supprimer trait pour racine */
+  .tree-root.tree-node::before {
+    content: none;
+  }
+
+  /* Conteneur enfants */
+  .children {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    gap: 20px;
+    position: relative;
+  }
+
+  /* Traits horizontaux entre enfants */
+  .children::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    border-top: 2px solid #007bff;
+  }
+
+  /* Trait vertical de chaque enfant au trait horizontal */
+  .children > .tree-node::before {
+    top: -20px;
+  }
+
+  /* Modal édition */
+  #edit-section {
+    margin-top: 30px;
     background: white;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 12px rgba(0,0,0,0.1);
-  }
-  .member-line {
-    cursor: pointer;
-  }
-  .member-line:hover {
-    background: #e0f0ff;
-  }
-  #edit-section {
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
     display: none;
-    margin-top: 20px;
-    background: white;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 0 12px rgba(0,0,0,0.1);
   }
+
   #edit-section input {
     width: 100%;
-    margin-bottom: 10px;
+    padding: 8px 12px;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: 1.5px solid #007bff;
+    outline-offset: 2px;
   }
+
   #edit-section button {
+    padding: 10px 18px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
     margin-right: 10px;
   }
-  @media (max-width: 500px) {
+
+  #save-edit {
+    background-color: #007bff;
+    color: white;
+  }
+  #save-edit:hover {
+    background-color: #0056b3;
+  }
+
+  #delete-edit {
+    background-color: #e03e2f;
+    color: white;
+  }
+  #delete-edit:hover {
+    background-color: #b22a20;
+  }
+
+  #cancel-edit {
+    background-color: #999;
+    color: white;
+  }
+  #cancel-edit:hover {
+    background-color: #666;
+  }
+
+  @media (max-width: 600px) {
     form {
       flex-direction: column;
     }
     input, select, button {
       width: 100%;
     }
+    .children {
+      flex-direction: column;
+      gap: 15px;
+    }
+    .children::before {
+      left: 50%;
+      right: auto;
+      height: 20px;
+      border-top: none;
+      border-left: 2px solid #007bff;
+      top: 10px;
+    }
+    .children > .tree-node::before {
+      top: 10px;
+      left: 50%;
+      height: 20px;
+      border-left: none;
+      border-top: 2px solid #007bff;
+      transform: translateX(-50%);
+    }
   }
 </style>
 
-<!-- Firebase SDK -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
 </head>
 <body>
 
-<h1>Arbre Généalogique Firebase</h1>
+<h1>Arbre Généalogique Firebase - Vertical</h1>
 
 <form id="add-form">
   <input type="text" id="name" placeholder="Nom de la personne" required autocomplete="off" />
@@ -98,18 +222,18 @@
   <button type="submit">Ajouter</button>
 </form>
 
-<pre id="tree">Chargement...</pre>
+<div id="tree"></div>
 
 <div id="edit-section">
   <h3>Modifier membre</h3>
   <input type="text" id="edit-name" />
   <button id="save-edit">💾 Sauvegarder</button>
-  <button id="delete-edit" style="background:#e03e2f; color:#fff;">❌ Supprimer</button>
+  <button id="delete-edit">❌ Supprimer</button>
   <button id="cancel-edit">Annuler</button>
 </div>
 
 <script>
-  // === CONFIG FIREBASE ===
+  // Config Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyCuXPX7SA8m8wr0KO4my2U5SRO4pT0FEj8",
     authDomain: "arbrefamillenomogo.firebaseapp.com",
@@ -118,16 +242,14 @@
     messagingSenderId: "1018139402299",
     appId: "1:1018139402299:web:14e689837f58bfabb9fc1e"
   };
-
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const membersCol = db.collection("members");
 
-  // === Variables globales ===
   let members = [];
   let editingId = null;
 
-  // Charger tous les membres depuis Firestore et réagir aux changements en temps réel
+  // Charger membres en temps réel
   function loadMembersRealtime() {
     membersCol.onSnapshot(snapshot => {
       members = [];
@@ -143,54 +265,62 @@
     });
   }
 
-  // Construire l'arbre sous forme de texte console + liens parents-enfants
-  function buildTreeLines(parentId = null, prefix = "") {
-    const children = members.filter(m => m.parentId === parentId);
-    if (children.length === 0) return "";
-    let result = "";
-    children.forEach((child, i) => {
-      const isLast = i === children.length - 1;
-      result += prefix;
-      result += isLast ? "└── " : "├── ";
-      result += `${child.name} (cliquer pour modifier)\n`;
-      const newPrefix = prefix + (isLast ? "    " : "│   ");
-      result += buildTreeLines(child.id, newPrefix);
-    });
-    return result;
+  // Rendu récursif de l'arbre en DOM
+  function createNodeElement(member) {
+    const div = document.createElement("div");
+    div.className = "tree-node";
+    if (!member.parentId) div.classList.add("tree-root");
+
+    const box = document.createElement("div");
+    box.className = "node-box";
+    box.textContent = member.name;
+    box.onclick = () => openEdit(member.id);
+    div.appendChild(box);
+
+    // Enfants
+    const children = members.filter(m => m.parentId === member.id);
+    if (children.length > 0) {
+      const childrenContainer = document.createElement("div");
+      childrenContainer.className = "children";
+      children.forEach(child => {
+        childrenContainer.appendChild(createNodeElement(child));
+      });
+      div.appendChild(childrenContainer);
+    }
+
+    return div;
   }
 
-  // Afficher l'arbre
   function renderTree() {
+    const treeDiv = document.getElementById("tree");
+    treeDiv.innerHTML = "";
     const roots = members.filter(m => !m.parentId);
     if (roots.length === 0) {
-      document.getElementById("tree").textContent = "Aucun membre. Ajoutez le premier membre.";
+      treeDiv.textContent = "Aucun membre. Ajoutez le premier membre.";
       return;
     }
-    let output = "";
     roots.forEach(root => {
-      output += root.name + "\n";
-      output += buildTreeLines(root.id, "");
+      treeDiv.appendChild(createNodeElement(root));
     });
-    document.getElementById("tree").textContent = output;
   }
 
-  // Remplir options parents dans le select
+  // Remplir le select parent
   function renderParentOptions() {
-    const select = document.getElementById("parent");
-    select.innerHTML = '<option value="">Aucun parent (racine)</option>';
+    const sel = document.getElementById("parent");
+    sel.innerHTML = '<option value="">Aucun parent (racine)</option>';
     members.forEach(m => {
-      select.innerHTML += `<option value="${m.id}">${escapeHtml(m.name)}</option>`;
+      sel.innerHTML += `<option value="${m.id}">${escapeHtml(m.name)}</option>`;
     });
   }
 
-  // Échapper HTML dans option
+  // Échapper texte
   function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => ({
       '&': "&amp;", '<': "&lt;", '>': "&gt;", '"': "&quot;", "'": "&#039;"
     })[m]);
   }
 
-  // Ajouter membre
+  // Ajout membre
   document.getElementById("add-form").addEventListener("submit", async e => {
     e.preventDefault();
     const nameInput = document.getElementById("name");
@@ -210,26 +340,14 @@
     }
   });
 
-  // Gérer clic sur arbre pour modifier membre
-  document.getElementById("tree").addEventListener("click", e => {
-    // Trouver la ligne cliquée en fonction du position Y (approximatif)
-    // On simplifie ici : on demande d'utiliser le menu modification via un prompt (pour plus de simplicité)
-    // Mais on peut faire mieux si tu veux.
-
-    // Pour l'instant, on demande le nom exact tapé dans la ligne (car c'est du texte brut)
-    // On peut demander à l'utilisateur de saisir le nom à modifier.
-
-    const clickedText = e.target.textContent;
-    if (!clickedText) return;
-    const nameClicked = clickedText.split(" (")[0].trim();
-    const member = members.find(m => m.name === nameClicked);
+  // Ouvrir édition
+  function openEdit(id) {
+    editingId = id;
+    const member = members.find(m => m.id === id);
     if (!member) return;
-
-    // Afficher section édition
-    editingId = member.id;
     document.getElementById("edit-name").value = member.name;
     showEditSection();
-  });
+  }
 
   // Modifier membre
   document.getElementById("save-edit").addEventListener("click", async () => {
@@ -239,7 +357,6 @@
       return;
     }
     if (!editingId) return;
-
     try {
       await membersCol.doc(editingId).update({ name: newName });
       hideEditSection();
@@ -252,18 +369,14 @@
   document.getElementById("delete-edit").addEventListener("click", async () => {
     if (!editingId) return;
     if (!confirm("Supprimer ce membre ? Ses enfants deviendront orphelins.")) return;
-
     try {
       await membersCol.doc(editingId).delete();
-
-      // Mettre à jour les enfants pour qu'ils n'aient plus de parent
+      // Orphelins
       const batch = db.batch();
       members.filter(m => m.parentId === editingId).forEach(child => {
-        const docRef = membersCol.doc(child.id);
-        batch.update(docRef, { parentId: null });
+        batch.update(membersCol.doc(child.id), { parentId: null });
       });
       await batch.commit();
-
       hideEditSection();
     } catch (err) {
       alert("Erreur suppression : " + err.message);
@@ -283,9 +396,10 @@
     document.getElementById("edit-section").style.display = "none";
   }
 
-  // Initialiser
+  // Init
   loadMembersRealtime();
 </script>
 
 </body>
 </html>
+
